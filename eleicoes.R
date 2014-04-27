@@ -6,8 +6,8 @@ detalheVotacaoMunicipioZonaTypes <- c("character", "character", "character", "nu
                                       "numeric", "numeric", "numeric", "numeric", "character", 
                                       "character")
 
-governadoresFiles <- c("governador_2010.csv", "governador_2006.csv", "governador_2002.csv")
-prefeitosFiles <- c("prefeito_2012.csv", "prefeito_2008.csv", "prefeito_2004.csv")
+governadoresFiles <- c("governador_2002.csv", "governador_2006.csv", "governador_2010.csv")
+prefeitosFiles <- c("prefeito_2004.csv", "prefeito_2008.csv", "prefeito_2012.csv")
 
 readDetalheVotacaoMunicipioZona <- function( fileName ) {
   fileConnection = file(fileName)
@@ -51,51 +51,77 @@ porcento <- function( total, value ) {
   (value * 100) / total
 }
 
+calcularLinha <- function(filtered, cidade) {    
+  aptos <- sum(filtered$qtd_aptos_tot)
+  comparecimentos <- sum(filtered$qtd_comparecimento)
+  abstencoes <- sum(filtered$qtd_abstencoes)
+  brancos <- sum(filtered$qtd_votos_brancos)
+  nulos <- sum(filtered$qtd_votos_nulos)
+  invalidos <- abstencoes + brancos + nulos
+  
+  data.frame(cidade=cidade, 
+             aptos=aptos,
+             comparecimentos=comparecimentos,
+             abstencoes=abstencoes,
+             abstencoes_pc=porcento(aptos, abstencoes),
+             brancos=brancos,
+             brancos_pc=porcento(aptos, brancos),
+             nulos=nulos,
+             nulos_pc=porcento(aptos, nulos),
+             invalidos=invalidos,
+             invalidos_pc=porcento(aptos,invalidos),
+             stringsAsFactors=FALSE
+  )  
+}
+
 agruparPorCidade <- function ( results ) {
   cidades <- unique(results$nome_municipio)
   sumVotes <- function( cidade ) {
-    filtered <- subset(results, nome_municipio == cidade)
-    
-    aptos <- sum(filtered$qtd_aptos_tot)
-    comparecimentos <- sum(filtered$qtd_comparecimento)
-    abstencoes <- sum(filtered$qtd_abstencoes)
-    brancos <- sum(filtered$qtd_votos_brancos)
-    nulos <- sum(filtered$qtd_votos_nulos)
-    invalidos <- abstencoes + brancos + nulos
-        
-    data.frame(cidade=cidade, 
-         aptos=aptos,
-         comparecimentos=comparecimentos,
-         abstencoes=abstencoes,
-         abstencoes_pc=porcento(aptos, abstencoes),
-         brancos=brancos,
-         brancos_pc=porcento(aptos, brancos),
-         nulos=nulos,
-         nulos_pc=porcento(aptos, nulos),
-         invalidos=invalidos,
-         invalidos_pc=porcento(aptos,invalidos),
-         stringsAsFactors=FALSE
-         )
+    filtered <- subset(results, nome_municipio == cidade)    
+    calcularLinha(filtered, cidade)
   }
+  
   rows <- lapply(cidades, sumVotes)
   frame <- Reduce(rbind, rows)
   frame[order(frame$abstencoes_pc, frame$brancos_pc, frame$nulos_pc),]
 }
 
-totaisParaGovernador <- function () {
+totaisParaCargo <- function ( fileNames, cargo, turno=1 ) {
   calcularTotais <- function( fileName ) {
-    dados <- readPorCargo( fileName, 3, 1)
-    data.frame(
-      eleicao=fileName
-      )
+    dados <- readPorCargo( fileName, cargo, turno)
+    aptos <- sum(dados$aptos)
+    comparecimentos <- sum(dados$comparecimentos)
+    abstencoes <- sum(dados$abstencoes)
+    brancos <- sum(dados$brancos)
+    nulos <- sum(dados$nulos)
+    invalidos <- abstencoes + brancos + nulos
+    
+    data.frame(eleicao=fileName, 
+               aptos=aptos,
+               comparecimentos=comparecimentos,
+               abstencoes=abstencoes,
+               abstencoes_pc=porcento(aptos, abstencoes),
+               brancos=brancos,
+               brancos_pc=porcento(aptos, brancos),
+               nulos=nulos,
+               nulos_pc=porcento(aptos, nulos),
+               invalidos=invalidos,
+               invalidos_pc=porcento(aptos,invalidos),
+               stringsAsFactors=FALSE
+    )  
   }
   
-  rows <- lapply(governadoresFiles, calcularTotais)
+  rows <- lapply(fileNames, calcularTotais)
   Reduce(rbind,rows)
+}  
+
+totaisParaGovernador <- function () {
+  totaisParaCargo(governadoresFiles, 3) 
 }
 
-
-
+totaisParaPrefeito <- function () {
+  totaisParaCargo(prefeitosFiles, 11) 
+}
 
 
 
